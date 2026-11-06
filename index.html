@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Parole Intrecciate</title>
+<meta name="description" content="Gioco di parole intrecciate in italiano, pensato per il telefono.">
+<meta name="theme-color" content="#2d5bd8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Parole">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Figtree:wght@400;600;700&family=Martian+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one column "puzzle card" — header, board with highlighter marks, word list, controls. */
+:root {
+  --bg: #eef1f4;
+  --paper: #fbfcfd;
+  --ink: #1b2430;
+  --muted: #5d6b7c;
+  --line: #d5dce4;
+  --accent: #2d5bd8;
+  --accent-ink: #ffffff;
+  --hl-1: rgba(255, 214, 10, .55);
+  --hl-2: rgba(255, 92, 168, .42);
+  --hl-3: rgba(42, 200, 120, .42);
+  --hl-4: rgba(64, 156, 255, .42);
+  --hl-5: rgba(255, 140, 40, .45);
+  --hl-6: rgba(160, 100, 255, .40);
+  --sel: rgba(45, 91, 216, .28);
+  --hint: #ffd60a;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --f-grid: "Martian Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161d; --paper: #19212b; --ink: #e8edf3; --muted: #93a1b2; --line: #2b3643;
+    --accent: #7ea2ff; --accent-ink: #0e1420;
+    --hl-1: rgba(255, 214, 10, .38); --hl-2: rgba(255, 92, 168, .38); --hl-3: rgba(42, 200, 120, .36);
+    --hl-4: rgba(64, 156, 255, .40); --hl-5: rgba(255, 140, 40, .38); --hl-6: rgba(170, 120, 255, .40);
+    --sel: rgba(126, 162, 255, .32); --hint: #ffd60a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161d; --paper: #19212b; --ink: #e8edf3; --muted: #93a1b2; --line: #2b3643;
+  --accent: #7ea2ff; --accent-ink: #0e1420;
+  --hl-1: rgba(255, 214, 10, .38); --hl-2: rgba(255, 92, 168, .38); --hl-3: rgba(42, 200, 120, .36);
+  --hl-4: rgba(64, 156, 255, .40); --hl-5: rgba(255, 140, 40, .38); --hl-6: rgba(170, 120, 255, .40);
+  --sel: rgba(126, 162, 255, .32); --hint: #ffd60a;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  margin: 0;
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  -webkit-tap-highlight-color: transparent;
+}
+.wrap { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+h1 {
+  font-family: var(--f-display); font-weight: 800; font-size: clamp(26px, 7vw, 34px);
+  line-height: .95; letter-spacing: -.02em; margin: 0; text-wrap: balance;
+}
+h1 span { display: block; position: relative; width: fit-content; }
+h1 span::before {
+  content: ""; position: absolute; left: -4px; right: -6px; top: 52%; bottom: 2%;
+  background: var(--hl-1); border-radius: 6px; z-index: -1; transform: rotate(-1deg);
+}
+h1 { position: relative; z-index: 0; }
+.stats { text-align: right; font-family: var(--f-grid); font-size: 12px; color: var(--muted); display: grid; gap: 2px; }
+.stats b { color: var(--ink); font-size: 17px; font-variant-numeric: tabular-nums; }
+
+.meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.theme-tag { text-transform: uppercase; letter-spacing: .1em; font-weight: 700; color: var(--ink); font-size: 12px; }
+
+.board {
+  position: relative; background: var(--paper); border: 1px solid var(--line);
+  border-radius: 14px; padding: 8px; container-type: inline-size;
+  box-shadow: 0 1px 0 var(--line), 0 10px 30px -18px rgba(20, 30, 50, .35);
+}
+.grid {
+  position: relative; display: grid; grid-template-columns: repeat(var(--n), 1fr);
+  touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer;
+}
+.cell {
+  aspect-ratio: 1; display: grid; place-items: center; position: relative; z-index: 2;
+  font-family: var(--f-grid); font-weight: 700; font-size: calc((100cqi - 16px) / var(--n) * .46);
+  color: var(--ink); border-radius: 50%;
+}
+.cell.hint { animation: hint 1.6s ease-out; }
+@keyframes hint { 0%, 60% { background: var(--hint); color: #1b2430; } 100% { background: transparent; } }
+svg.marks { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; overflow: visible; }
+svg.marks line { stroke-linecap: round; stroke-width: .76; }
+svg.marks line.new { animation: draw .35s ease-out; }
+@keyframes draw { from { stroke-width: 0; } }
+
+.words { display: flex; flex-wrap: wrap; gap: 6px 8px; padding: 0; margin: 0; list-style: none; }
+.words li {
+  font-family: var(--f-grid); font-size: 12.5px; font-weight: 500; letter-spacing: .04em;
+  padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper);
+  transition: opacity .3s;
+}
+.words li.found { text-decoration: line-through; text-decoration-thickness: 2px; opacity: .55; border-color: transparent; }
+
+.controls { display: grid; gap: 10px; margin-top: 4px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+label.lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 700; display: block; margin-bottom: 4px; }
+select, .seg button, .btn {
+  font: 600 14px var(--f-body); color: var(--ink); background: var(--paper);
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 42px;
+}
+select { width: 100%; }
+.field { flex: 1 1 150px; min-width: 0; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--paper); }
+.seg button { flex: 1; border: 0; border-radius: 0; background: transparent; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.btn { cursor: pointer; flex: 1; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.win {
+  position: absolute; inset: 0; z-index: 5; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--paper) 82%, transparent); backdrop-filter: blur(3px);
+  border-radius: 14px; padding: 16px;
+}
+.win-card { text-align: center; display: grid; gap: 10px; justify-items: center; }
+.win-card h2 { font-family: var(--f-display); font-weight: 800; font-size: clamp(28px, 9cqi, 40px); margin: 0; letter-spacing: -.02em; }
+.win-card p { margin: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+.win-card .btn { flex: none; padding-inline: 22px; }
+
+.help { font-size: 13px; color: var(--muted); margin: 0; line-height: 1.5; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1><span>Parole</span>Intrecciate</h1>
+    <div class="stats">
+      <div>tempo <b id="timer">0:00</b></div>
+      <div>trovate <b id="score">0/0</b></div>
+    </div>
+  </header>
+
+  <div class="meta">
+    <span class="theme-tag" id="themeTag">Animali</span>
+    <span id="best">Record: —</span>
+  </div>
+
+  <div class="board">
+    <div class="grid" id="grid"></div>
+    <div class="win" id="win" hidden>
+      <div class="win-card">
+        <h2>Completato!</h2>
+        <p id="winText"></p>
+        <button class="btn primary" id="again">Gioca ancora</button>
+      </div>
+    </div>
+  </div>
+
+  <ul class="words" id="words"></ul>
+
+  <p class="help">Trascina il dito sulle lettere per evidenziare una parola. Le parole possono andare in orizzontale, in verticale e in diagonale.</p>
+
+  <div class="controls">
+    <div class="row">
+      <div class="field">
+        <label class="lbl" for="theme">Tema</label>
+        <select id="theme"></select>
+      </div>
+      <div class="field">
+        <span class="lbl">Difficoltà</span>
+        <div class="seg" id="level" role="group" aria-label="Difficoltà">
+          <button type="button" data-l="facile">Facile</button>
+          <button type="button" data-l="medio" aria-pressed="true">Medio</button>
+          <button type="button" data-l="difficile">Difficile</button>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn" id="hintBtn" type="button">Aiutino</button>
+      <button class="btn primary" id="newBtn" type="button">Nuova partita</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const THEMES = {
+  "Animali": ["GATTO","CANE","LEONE","TIGRE","ZEBRA","GIRAFFA","DELFINO","AQUILA","CAVALLO","FARFALLA","CONIGLIO","VOLPE","LUPO","ORSO","RICCIO","PANDA","CAMMELLO","PINGUINO","SCOIATTOLO","TARTARUGA"],
+  "Frutta": ["MELA","PERA","BANANA","ARANCIA","LIMONE","FRAGOLA","CILIEGIA","PESCA","UVA","KIWI","ANANAS","MANGO","FICO","MELONE","ANGURIA","LAMPONE","ALBICOCCA","MIRTILLO","SUSINA"],
+  "Città italiane": ["ROMA","MILANO","NAPOLI","TORINO","FIRENZE","VENEZIA","BOLOGNA","GENOVA","PALERMO","BARI","VERONA","PADOVA","TRIESTE","PERUGIA","LECCE","PARMA","COMO","BERGAMO","CAGLIARI","CATANIA"],
+  "Cucina": ["PASTA","PIZZA","RISOTTO","LASAGNA","GNOCCHI","TIRAMISU","GELATO","PESTO","RAGU","POLENTA","FOCACCIA","RAVIOLI","CANNOLI","ARANCINI","MOZZARELLA","BRUSCHETTA","CARBONARA","PANETTONE"],
+  "Sport": ["CALCIO","TENNIS","BASKET","NUOTO","CICLISMO","SCI","RUGBY","GOLF","BOXE","VELA","SCHERMA","PALLAVOLO","JUDO","ATLETICA","KARATE","SURF","CANOTTAGGIO","PADEL"],
+  "Mare": ["ONDA","SPIAGGIA","CONCHIGLIA","SABBIA","FARO","BARCA","MEDUSA","POLPO","GRANCHIO","SCOGLIO","PORTO","ALGA","SALE","GABBIANO","OMBRELLONE","ISOLA","DELFINO","CORALLO"]
+};
+const ALL8 = [[0,1],[1,0],[1,1],[-1,1],[0,-1],[-1,0],[-1,-1],[1,-1]];
+const LEVELS = {
+  facile:    { n: 8,  count: 6,  dirs: [[0,1],[1,0]] },
+  medio:     { n: 10, count: 8,  dirs: [[0,1],[1,0],[1,1],[-1,1]] },
+  difficile: { n: 12, count: 10, dirs: ALL8 }
+};
+const FILL = "AAAAAEEEEEIIIIIOOOOOUUNNNRRRSSSTTTLLLCCCMMPPDDGGVBFZH";
+const HL = ["--hl-1","--hl-2","--hl-3","--hl-4","--hl-5","--hl-6"];
+
+const $ = id => document.getElementById(id);
+const gridEl = $("grid"), wordsEl = $("words");
+let state = null, sel = null, timerId = null, levelKey = "medio";
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+};
+
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const fmt = s => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+
+function generate(themeName, lv) {
+  const { n, count, dirs } = lv;
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const words = shuffle(THEMES[themeName].filter(w => w.length <= n)).slice(0, count).sort((a, b) => b.length - a.length);
+    const g = Array.from({ length: n }, () => Array(n).fill(""));
+    const placed = [];
+    let ok = true;
+    for (const w of words) {
+      let done = false;
+      for (let t = 0; t < 400 && !done; t++) {
+        const [dr, dc] = dirs[Math.random() * dirs.length | 0];
+        const r = Math.random() * n | 0, c = Math.random() * n | 0;
+        const er = r + dr * (w.length - 1), ec = c + dc * (w.length - 1);
+        if (er < 0 || er >= n || ec < 0 || ec >= n) continue;
+        let fits = true;
+        for (let i = 0; i < w.length; i++) { const ch = g[r + dr * i][c + dc * i]; if (ch && ch !== w[i]) { fits = false; break; } }
+        if (!fits) continue;
+        for (let i = 0; i < w.length; i++) g[r + dr * i][c + dc * i] = w[i];
+        placed.push({ word: w, r, c, er, ec, found: false });
+        done = true;
+      }
+      if (!done) { ok = false; break; }
+    }
+    if (!ok) continue;
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (!g[r][c]) g[r][c] = FILL[Math.random() * FILL.length | 0];
+    return { n, grid: g, placed: placed.sort((a, b) => a.word.localeCompare(b.word)) };
+  }
+  return null;
+}
+
+function newGame() {
+  const themeName = $("theme").value;
+  const lv = LEVELS[levelKey];
+  const puzzle = generate(themeName, lv);
+  state = { ...puzzle, theme: themeName, found: [], start: Date.now(), elapsed: 0, done: false, hints: 0 };
+  sel = null;
+  render();
+  $("win").hidden = true;
+  clearInterval(timerId);
+  timerId = setInterval(tick, 1000);
+  tick();
+}
+
+function tick() {
+  if (!state || state.done) return;
+  state.elapsed = Math.floor((Date.now() - state.start) / 1000);
+  $("timer").textContent = fmt(state.elapsed);
+}
+
+function bestKey() { return "pi-best-" + levelKey; }
+function showBest() {
+  const b = store.get(bestKey());
+  $("best").textContent = "Record " + levelKey + ": " + (b ? fmt(+b) : "—");
+}
+
+function render() {
+  const { n, grid } = state;
+  gridEl.style.setProperty("--n", n);
+  gridEl.innerHTML = "";
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "marks");
+  svg.setAttribute("viewBox", `0 0 ${n} ${n}`);
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.id = "marks";
+  gridEl.appendChild(svg);
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    const d = document.createElement("div");
+    d.className = "cell"; d.textContent = grid[r][c]; d.dataset.r = r; d.dataset.c = c;
+    gridEl.appendChild(d);
+  }
+  $("themeTag").textContent = state.theme;
+  renderWords();
+  drawMarks();
+  showBest();
+}
+
+function renderWords() {
+  wordsEl.innerHTML = "";
+  state.placed.forEach(p => {
+    const li = document.createElement("li");
+    li.textContent = p.word;
+    if (p.found) li.className = "found";
+    wordsEl.appendChild(li);
+  });
+  $("score").textContent = state.found.length + "/" + state.placed.length;
+}
+
+function line(r0, c0, r1, c1, color, cls) {
+  const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  l.setAttribute("x1", c0 + .5); l.setAttribute("y1", r0 + .5);
+  l.setAttribute("x2", c1 + .5); l.setAttribute("y2", r1 + .5);
+  l.setAttribute("stroke", color);
+  if (cls) l.setAttribute("class", cls);
+  return l;
+}
+
+function drawMarks(newIdx) {
+  const svg = $("marks");
+  svg.innerHTML = "";
+  const cs = getComputedStyle(document.documentElement);
+  state.found.forEach((p, i) => {
+    svg.appendChild(line(p.r, p.c, p.er, p.ec, cs.getPropertyValue(HL[i % HL.length]).trim(), i === newIdx ? "new" : ""));
+  });
+  if (sel) svg.appendChild(line(sel.r0, sel.c0, sel.r1, sel.c1, cs.getPropertyValue("--sel").trim()));
+}
+
+function pos(e) {
+  const rect = gridEl.getBoundingClientRect(), n = state.n;
+  return { x: (e.clientX - rect.left) / rect.width * n, y: (e.clientY - rect.top) / rect.height * n };
+}
+
+gridEl.addEventListener("pointerdown", e => {
+  if (!state || state.done) return;
+  const { x, y } = pos(e), n = state.n;
+  const r = Math.floor(y), c = Math.floor(x);
+  if (r < 0 || r >= n || c < 0 || c >= n) return;
+  gridEl.setPointerCapture(e.pointerId);
+  sel = { r0: r, c0: c, r1: r, c1: c };
+  drawMarks();
+});
+
+gridEl.addEventListener("pointermove", e => {
+  if (!sel) return;
+  const { x, y } = pos(e), n = state.n;
+  const dx = x - (sel.c0 + .5), dy = y - (sel.r0 + .5);
+  const dist = Math.hypot(dx, dy);
+  let r1 = sel.r0, c1 = sel.c0;
+  if (dist >= .5) {
+    const k = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
+    const dc = Math.round(Math.cos(k * Math.PI / 4)), dr = Math.round(Math.sin(k * Math.PI / 4));
+    let steps = Math.round(dist / Math.hypot(dc, dr));
+    while (steps > 0) {
+      const rr = sel.r0 + dr * steps, cc = sel.c0 + dc * steps;
+      if (rr >= 0 && rr < n && cc >= 0 && cc < n) break;
+      steps--;
+    }
+    r1 = sel.r0 + dr * steps; c1 = sel.c0 + dc * steps;
+  }
+  if (r1 !== sel.r1 || c1 !== sel.c1) { sel.r1 = r1; sel.c1 = c1; drawMarks(); }
+});
+
+function endSelect() {
+  if (!sel) return;
+  const s = sel; sel = null;
+  const hit = state.placed.find(p => !p.found && (
+    (p.r === s.r0 && p.c === s.c0 && p.er === s.r1 && p.ec === s.c1) ||
+    (p.r === s.r1 && p.c === s.c1 && p.er === s.r0 && p.ec === s.c0)));
+  if (hit) {
+    hit.found = true;
+    state.found.push(hit);
+    renderWords();
+    drawMarks(state.found.length - 1);
+    if (navigator.vibrate) try { navigator.vibrate(15); } catch (e) {}
+    if (state.found.length === state.placed.length) win();
+  } else drawMarks();
+}
+gridEl.addEventListener("pointerup", endSelect);
+gridEl.addEventListener("pointercancel", endSelect);
+
+function win() {
+  state.done = true;
+  clearInterval(timerId);
+  tick();
+  const t = Math.floor((Date.now() - state.start) / 1000);
+  const prev = store.get(bestKey());
+  let msg = "Tempo: " + fmt(t);
+  if (!prev || t < +prev) { store.set(bestKey(), t); msg += " · Nuovo record!"; }
+  else msg += " · Record: " + fmt(+prev);
+  if (state.hints) msg += " · Aiutini: " + state.hints;
+  $("winText").textContent = msg;
+  $("win").hidden = false;
+  showBest();
+}
+
+$("hintBtn").addEventListener("click", () => {
+  if (!state || state.done) return;
+  const left = state.placed.filter(p => !p.found);
+  if (!left.length) return;
+  const p = left[Math.random() * left.length | 0];
+  const cell = gridEl.querySelector(`.cell[data-r="${p.r}"][data-c="${p.c}"]`);
+  cell.classList.remove("hint"); void cell.offsetWidth; cell.classList.add("hint");
+  state.hints++;
+});
+
+$("level").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  levelKey = b.dataset.l;
+  $("level").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  store.set("pi-level", levelKey);
+  newGame();
+});
+$("theme").addEventListener("change", () => { store.set("pi-theme", $("theme").value); newGame(); });
+$("newBtn").addEventListener("click", newGame);
+$("again").addEventListener("click", newGame);
+
+// Ridisegna gli evidenziatori quando cambia il tema chiaro/scuro
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => state && drawMarks());
+
+// Avvio
+const sel0 = $("theme");
+Object.keys(THEMES).forEach(t => { const o = document.createElement("option"); o.value = o.textContent = t; sel0.appendChild(o); });
+const savedTheme = store.get("pi-theme"), savedLevel = store.get("pi-level");
+if (savedTheme && THEMES[savedTheme]) sel0.value = savedTheme;
+if (savedLevel && LEVELS[savedLevel]) {
+  levelKey = savedLevel;
+  $("level").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x.dataset.l === levelKey));
+}
+newGame();
+// Service worker: permette di installare l'app e usarla offline
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
+</body>
+</html>
